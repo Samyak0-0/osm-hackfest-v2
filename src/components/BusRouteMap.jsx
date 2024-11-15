@@ -103,6 +103,26 @@ const BusRouteMap = () => {
   // ];
   // This component handles map events
 
+  const sendDataToServer = async (data) => {
+
+    try {
+      const response = await fetch("http://localhost:3000/addroute", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ markerPosition, polyLines: polyLine }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send data to the server");
+      }
+      console.log("Data sent successfully:", data);
+    } catch (error) {
+      console.error("Error sending data to the server:", error);
+    }
+  };
+
   const fetchLocationName = async (lat, lon) => {
     try {
       const response = await fetch(
@@ -115,9 +135,12 @@ const BusRouteMap = () => {
         ...prev,
         { type: markerState, lt: lat, ln: lon, namee: placeName },
       ]);
-      setMajorCheckPoints((prev) => [...prev, {lt:lat, ln:lon, namee: placeName }])
+      setMajorCheckPoints((prev) => [
+        ...prev,
+        { lt: lat, ln: lon, namee: placeName },
+      ]);
       console.log(placeName, lat, lon);
-      console.log(majorCheckPoints)
+      console.log(majorCheckPoints);
     } catch (error) {
       console.error("Error fetching location name:", error);
       setLocationName("Error fetching location");
@@ -141,11 +164,11 @@ const BusRouteMap = () => {
         }
 
         if (markerState === "busStop") {
-          setBusStops((prev) => [...prev, {lt:lat, ln:lng}])
+          setBusStops((prev) => [...prev, { lt: lat, ln: lng }]);
         }
 
         console.log(markerPosition);
-        console.log(busStops)
+        console.log(busStops);
       },
     });
     return null;
@@ -191,6 +214,9 @@ const BusRouteMap = () => {
         <button onClick={() => setMarkerState("normal")}>a</button>
         <button onClick={() => setMarkerState("busStop")}>b</button>
         <button onClick={() => setMarkerState("majorCheckPoint")}>c</button>
+      </div>
+      <div>
+        <button onClick={sendDataToServer}>click gar</button>
       </div>
       <MapContainer
         center={getPosition()}

@@ -1,7 +1,7 @@
 // First install these dependencies:
 // npm install leaflet react-leaflet
 
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -13,6 +13,7 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L, { marker } from "leaflet";
+import { MainContext } from "../context/primaryContext";
 
 // Fix for default markers not showing
 delete L.Icon.Default.prototype._getIconUrl;
@@ -24,6 +25,35 @@ L.Icon.Default.mergeOptions({
   shadowUrl:
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
+
+// Create a custom marker icon
+const createCustomIcon1 = () => {
+  return L.divIcon({
+    className: "custom-icon",
+    html: `<div class="w-8 h-8 text-red-500">
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="green" stroke="green" stroke-width="0" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+        <circle cx="12" cy="10" r="3" fill="white" stroke="green"></circle>
+      </svg>
+    </div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+  });
+};
+
+const createCustomIcon2 = () => {
+  return L.divIcon({
+    className: "custom-icon",
+    html: `<div class="w-8 h-8 text-red-500">
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="red" stroke="red" stroke-width="0" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+        <circle cx="12" cy="10" r="3" fill="white" stroke="red"></circle>
+      </svg>
+    </div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+  });
+};
 
 const getPosition = () => {
   const [currentPosition, setCurrentPosition] = useState([27.71, 85.32]); // Default fallback position
@@ -49,6 +79,16 @@ const getPosition = () => {
 
 const BusRouteMap = () => {
   const [markerPosition, setMarkerPosition] = useState([]);
+  const { markerState, setMarkerState } = useContext(MainContext);
+
+  const [busStops, setBusStops] = useState([]);
+  const [majorCheckPoints, setMajorCheckPoints] = useState([]);
+
+  console.log(markerState);
+
+  const customIcon1 = createCustomIcon1();
+  const customIcon2 = createCustomIcon2();
+  const [locationName, setLocationName] = useState("");
 
   const [polyLine, setPolyLine] = useState([]);
   // const polyLine = [
@@ -62,12 +102,50 @@ const BusRouteMap = () => {
   //   },
   // ];
   // This component handles map events
+
+  const fetchLocationName = async (lat, lon) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+      );
+      const data = await response.json();
+      const placeName = data.display_name.split(",").slice(0, 3).join(",");
+      setLocationName(data.display_name || "Location not found");
+      setMarkerPosition((prev) => [
+        ...prev,
+        { type: markerState, lt: lat, ln: lon, namee: placeName },
+      ]);
+      setMajorCheckPoints((prev) => [...prev, {lt:lat, ln:lon, namee: placeName }])
+      console.log(placeName, lat, lon);
+      console.log(majorCheckPoints)
+    } catch (error) {
+      console.error("Error fetching location name:", error);
+      setLocationName("Error fetching location");
+    }
+  };
+
   const MapClickHandler = () => {
     useMapEvents({
       click: (event) => {
         const { lat, lng } = event.latlng;
-        setMarkerPosition((prev) => [...prev, { lt: lat, ln: lng }]);
-        setPolyLine((prev) => [...prev, [lat, lng]])
+
+        setPolyLine((prev) => [...prev, [lat, lng]]);
+
+        if (markerState === "majorCheckPoint") {
+          fetchLocationName(lat, lng);
+        } else {
+          setMarkerPosition((prev) => [
+            ...prev,
+            { type: markerState, lt: lat, ln: lng },
+          ]);
+        }
+
+        if (markerState === "busStop") {
+          setBusStops((prev) => [...prev, {lt:lat, ln:lng}])
+        }
+
+        console.log(markerPosition);
+        console.log(busStops)
       },
     });
     return null;
@@ -109,6 +187,11 @@ const BusRouteMap = () => {
 
   return (
     <div style={{ height: "600px", width: "100%" }}>
+      <div>
+        <button onClick={() => setMarkerState("normal")}>a</button>
+        <button onClick={() => setMarkerState("busStop")}>b</button>
+        <button onClick={() => setMarkerState("majorCheckPoint")}>c</button>
+      </div>
       <MapContainer
         center={getPosition()}
         zoom={13}
@@ -121,20 +204,34 @@ const BusRouteMap = () => {
         <MapClickHandler />
 
         {markerPosition &&
-          markerPosition.map((markerr) => (
-            <Marker
-              position={[markerr.lt, markerr.ln]}
-              key={`${markerr.lt}-${markerr.ln}`}
-            />
-          ))}
+          markerPosition.map((markerr) =>
+            markerr.type === "normal" ? (
+              <Marker
+                position={[markerr.lt, markerr.ln]}
+                key={`${markerr.lt}-${markerr.ln}`}
+              />
+            ) : markerr.type === "busStop" ? (
+              <Marker
+                icon={customIcon1}
+                position={[markerr.lt, markerr.ln]}
+                key={`${markerr.lt}-${markerr.ln}`}
+              />
+            ) : (
+              <Marker
+                icon={customIcon2}
+                position={[markerr.lt, markerr.ln]}
+                key={`${markerr.lt}-${markerr.ln}`}
+              />
+            )
+          )}
 
-        {polyLine && 
+        {polyLine && (
           <React.Fragment key={123}>
             <Polyline positions={polyLine} color={"green"} weight={3}>
               <Popup>{"Asdasd"}</Popup>
             </Polyline>
           </React.Fragment>
-        }
+        )}
 
         {busRoutes.map((route) => (
           <React.Fragment key={route.id}>

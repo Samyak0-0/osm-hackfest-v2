@@ -77,7 +77,7 @@ const getPosition = () => {
   return currentPosition;
 };
 
-const BusRouteMap = () => {
+const BusRouteFinder = () => {
   const [markerPosition, setMarkerPosition] = useState([]);
   const { markerState, setMarkerState } = useContext(MainContext);
 
@@ -103,17 +103,23 @@ const BusRouteMap = () => {
   // ];
   // This component handles map events
 
-  const sendDataToServer = async (data) => {
+  const getDataFromServer = async (lat1,lon1,lat2,lon2) => {
     try {
-
-      
-      const response = await fetch("http://localhost:3000/addroute", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ markerPosition, polyLines: polyLine }),
+      const params = new URLSearchParams({
+        s_lat: lat1,
+        s_lon: lon1,
+        d_lat: lat2,
+        d_lon: lon2,
       });
+      const response = await fetch(
+        `http://localhost:3000/route?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to send data to the server");
@@ -132,58 +138,40 @@ const BusRouteMap = () => {
       const data = await response.json();
       const placeName = data.display_name.split(",").slice(0, 3).join(",");
       setLocationName(data.display_name || "Location not found");
-      setMarkerPosition((prev) => [
-        ...prev,
-        { type: markerState, lt: lat, ln: lon, namee: placeName },
-      ]);
-      setMajorCheckPoints((prev) => [
-        ...prev,
-        { lt: lat, ln: lon, namee: placeName },
-      ]);
-      console.log(placeName, lat, lon);
-      console.log(majorCheckPoints);
+
+      if (markerState === "confirmed") {
+        if (markerPosition.length === 1) {
+          setMarkerPosition((prev) => [
+            ...prev,
+            { type: markerState, lt: lat, ln: lon, namee: placeName },
+          ]);
+        } else {
+          markerPosition.pop();
+          setMarkerPosition((prev) => [
+            ...prev,
+            { type: markerState, lt: lat, ln: lon, namee: placeName },
+          ]);
+        }
+
+        setDestination(placeName);
+      } else {
+        setMarkerPosition([
+          { type: markerState, lt: lat, ln: lon, namee: placeName },
+        ]);
+        setSource(placeName);
+      }
+
+      // setMajorCheckPoints((prev) => [
+      //   ...prev,
+      //   { lt: lat, ln: lon, namee: placeName },
+      // ]);
+      // console.log(placeName, lat, lon);
+      // console.log(majorCheckPoints);
+
+      console.log(markerPosition);
     } catch (error) {
       console.error("Error fetching location name:", error);
       setLocationName("Error fetching location");
-    }
-  };
-
-  const checkAndAddBusStop = async (newStop) => {
-    try {
-      // Check if the bus stop already exists in the database
-      const response = await fetch("http://localhost:3000/checkbusstop", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newStop),
-      });
-
-      const result = await response.json();
-
-      if (!result.exists) {
-        // Add the new bus stop to the database if it doesn't exist
-        const addResponse = await fetch("http://localhost:3000/addbusstop", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(newStop),
-        });
-
-        if (!addResponse.ok) {
-          throw new Error("Failed to add bus stop to the database");
-        }
-
-        console.log("Bus stop added successfully:", newStop);
-
-        // Update the local state only if the addition is successful
-        setBusStops((prev) => [...prev, newStop]);
-      } else {
-        console.log("Bus stop already exists in the database:", newStop);
-      }
-    } catch (error) {
-      console.error("Error checking/adding bus stop:", error);
     }
   };
 
@@ -192,33 +180,14 @@ const BusRouteMap = () => {
       click: (event) => {
         const { lat, lng } = event.latlng;
 
-        setPolyLine((prev) => [...prev, [lat, lng]]);
+        // setPolyLine((prev) => [...prev, [lat, lng]]);
 
-        if (markerState === "majorCheckPoint") {
-          fetchLocationName(lat, lng);
-        } else {
-          setMarkerPosition((prev) => [
-            ...prev,
-            { type: markerState, lt: lat, ln: lng },
-          ]);
-        }
+        fetchLocationName(lat, lng);
 
-        if (markerState === "busStop") {
-          const round_lat = Math.round(lat * 1000) / 1000;
-          const round_lng = Math.round(lng * 1000) / 1000;
-
-          const newStop = { lt: round_lat, ln: round_lng };
-
-          // Check and add the bus stop to the database and state
-          checkAndAddBusStop(newStop);
-
-          // setBusStops((prev) => {
-          //   const newStop = { lt: round_lat, ln: round_lng };
-          //   const uniqueStops = new Set(prev.map((stop) => JSON.stringify(stop)));
-          //   uniqueStops.add(JSON.stringify(newStop));
-          //   return Array.from(uniqueStops).map((stop) => JSON.parse(stop));
-          // });
-        }
+        // setMarkerPosition((prev) => [
+        //   ...prev,
+        //   { type: markerState, lt: lat, ln: lng },
+        // ])
 
         console.log(markerPosition);
         console.log(busStops);
@@ -226,41 +195,6 @@ const BusRouteMap = () => {
     });
     return null;
   };
-
-  const undoMark = async () => {
-    try {
-      if (markerState === "busStop" && markerPosition.length > 0) {
-        // Get the last bus stop added
-        const lastMarker = markerPosition[markerPosition.length - 1];
-  
-        // Check if it is a bus stop
-        if (lastMarker.type === "busStop") {
-          // Make API call to delete the bus stop from the database
-          const response = await fetch("http://localhost:3000/deletebus", {
-            method: "DELETE",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ lt: Math.round(lastMarker.lt* 1000) / 1000, ln: Math.round(lastMarker.ln* 1000) / 1000}),
-          });
-  
-          if (!response.ok) {
-            throw new Error("Failed to delete the bus stop from the database");
-          }
-  
-          console.log("Bus stop deleted successfully:", lastMarker);
-        }
-      }
-  
-      // Remove the last marker from markerPosition
-      markerPosition.pop();
-  
-      console.log("Updated marker positions:", markerPosition);
-    } catch (error) {
-      console.error("Error undoing marker:", error);
-    }
-    
-  }
 
   // Sample bus route data - replace with your actual data
   const busRoutes = [
@@ -295,18 +229,25 @@ const BusRouteMap = () => {
       ],
     },
   ];
-
+  const [source, setSource] = useState("");
+  const [destination, setDestination] = useState("");
   return (
     <div style={{ height: "600px", width: "100%" }}>
       <div>
-        <button onClick={() => setMarkerState("normal")}>a</button>
-        <button onClick={() => setMarkerState("busStop")}>b</button>
-        <button onClick={() => setMarkerState("majorCheckPoint")}>c</button>
+        <input
+          value={source}
+          placeholder="a"
+          onChange={(e) => setSource(e.target.value)}
+        />
+        <input
+          value={destination}
+          placeholder="b"
+          onChange={(e) => setSource(e.target.value)}
+        />
+        <button onClick={() => setMarkerState("confirmed")}>a confirm</button>
+        <button onClick={() => getDataFromServer(markerPosition[0].lt, markerPosition[0].ln, markerPosition[1].lt, markerPosition[1].ln)}>b confirm</button>
       </div>
-      <div>
-        <button onClick={sendDataToServer}>click gar</button>
-        <button onClick={undoMark}>undo</button>
-      </div>
+      <div>{/* <button onClick={sendDataToServer}>click gar</button> */}</div>
       <MapContainer
         center={getPosition()}
         zoom={13}
@@ -347,32 +288,9 @@ const BusRouteMap = () => {
             </Polyline>
           </React.Fragment>
         )}
-
-        {busRoutes.map((route) => (
-          <React.Fragment key={route.id}>
-            {/* Draw the route line */}
-            <Polyline positions={route.path} color={route.color} weight={3}>
-              <Popup>{route.name}</Popup>
-            </Polyline>
-
-            {/* Add markers for bus stops */}
-            {route.stops.map((stop, index) => (
-              <Marker
-                key={`${route.id}-stop-${index}`}
-                position={stop.position}
-              >
-                <Popup>
-                  {stop.name}
-                  <br />
-                  {route.name}
-                </Popup>
-              </Marker>
-            ))}
-          </React.Fragment>
-        ))}
       </MapContainer>
     </div>
   );
 };
 
-export default BusRouteMap;
+export default BusRouteFinder;

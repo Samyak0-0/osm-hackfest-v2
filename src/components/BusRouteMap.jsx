@@ -105,8 +105,6 @@ const BusRouteMap = () => {
 
   const sendDataToServer = async (data) => {
     try {
-
-      
       const response = await fetch("http://localhost:3000/addroute", {
         method: "POST",
         headers: {
@@ -132,19 +130,65 @@ const BusRouteMap = () => {
       const data = await response.json();
       const placeName = data.display_name.split(",").slice(0, 3).join(",");
       setLocationName(data.display_name || "Location not found");
+      const round_lat = Math.round(lat * 1000) / 1000;
+      const round_lng = Math.round(lon * 1000) / 1000;
       setMarkerPosition((prev) => [
         ...prev,
-        { type: markerState, lt: lat, ln: lon, namee: placeName },
+        { type: markerState, lt: round_lat, ln: round_lng, namee: placeName },
       ]);
-      setMajorCheckPoints((prev) => [
-        ...prev,
-        { lt: lat, ln: lon, namee: placeName },
-      ]);
+      // setMajorCheckPoints((prev) => [
+      //   ...prev,
+      //   { lt: lat, ln: lon, namee: placeName },
+      // ]);
+
+      checkAndAddCheckPoint({ lt: round_lat, ln: round_lng, namee: placeName })
       console.log(placeName, lat, lon);
       console.log(majorCheckPoints);
     } catch (error) {
       console.error("Error fetching location name:", error);
       setLocationName("Error fetching location");
+    }
+  };
+
+  const checkAndAddCheckPoint = async (newCheckPoint) => {
+    try {
+      // Check if the checkpoint already exists in the database
+      const response = await fetch("http://localhost:3000/checkcheckpoint", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newCheckPoint),
+      });
+
+      const result = await response.json();
+
+      if (!result.exists) {
+        // Add the new checkpoint to the database if it doesn't exist
+        const addResponse = await fetch("http://localhost:3000/addcheckpoint", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(newCheckPoint),
+        });
+
+        if (!addResponse.ok) {
+          throw new Error("Failed to add checkpoint to the database");
+        }
+
+        console.log("Checkpoint added successfully:", newCheckPoint);
+
+        // Update the local state only if the addition is successful
+        setMajorCheckPoints((prev) => [...prev, newCheckPoint]);
+      } else {
+        console.log(
+          "Checkpoint already exists in the database:",
+          newCheckPoint
+        );
+      }
+    } catch (error) {
+      console.error("Error checking/adding checkpoint:", error);
     }
   };
 
@@ -196,7 +240,7 @@ const BusRouteMap = () => {
 
         if (markerState === "majorCheckPoint") {
           fetchLocationName(lat, lng);
-        } else {
+        } else if (markerState === "normal") {
           setMarkerPosition((prev) => [
             ...prev,
             { type: markerState, lt: lat, ln: lng },
@@ -208,6 +252,11 @@ const BusRouteMap = () => {
           const round_lng = Math.round(lng * 1000) / 1000;
 
           const newStop = { lt: round_lat, ln: round_lng };
+
+          setMarkerPosition((prev) => [
+            ...prev,
+            { type: markerState, lt: round_lat, ln: round_lng },
+          ]);
 
           // Check and add the bus stop to the database and state
           checkAndAddBusStop(newStop);
@@ -232,7 +281,7 @@ const BusRouteMap = () => {
       if (markerState === "busStop" && markerPosition.length > 0) {
         // Get the last bus stop added
         const lastMarker = markerPosition[markerPosition.length - 1];
-  
+
         // Check if it is a bus stop
         if (lastMarker.type === "busStop") {
           // Make API call to delete the bus stop from the database
@@ -241,26 +290,29 @@ const BusRouteMap = () => {
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ lt: Math.round(lastMarker.lt* 1000) / 1000, ln: Math.round(lastMarker.ln* 1000) / 1000}),
+            body: JSON.stringify({
+              lt: Math.round(lastMarker.lt * 1000) / 1000,
+              ln: Math.round(lastMarker.ln * 1000) / 1000,
+            }),
           });
-  
+
           if (!response.ok) {
             throw new Error("Failed to delete the bus stop from the database");
           }
-  
+
           console.log("Bus stop deleted successfully:", lastMarker);
         }
       }
-  
+
       // Remove the last marker from markerPosition
       markerPosition.pop();
-  
+      polyLine.pop();
+
       console.log("Updated marker positions:", markerPosition);
     } catch (error) {
       console.error("Error undoing marker:", error);
     }
-    
-  }
+  };
 
   // Sample bus route data - replace with your actual data
   const busRoutes = [

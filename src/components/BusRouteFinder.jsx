@@ -103,14 +103,15 @@ const BusRouteFinder = () => {
   // ];
   // This component handles map events
 
-  const getDataFromServer = async (lat1,lon1,lat2,lon2) => {
-    try {
+  const getDataFromServer = async (lat1, lon1, lat2, lon2) => {
+    const makeRouteRequest = async (sLat, sLon, dLat, dLon) => {
       const params = new URLSearchParams({
-        s_lat: lat1,
-        s_lon: lon1,
-        d_lat: lat2,
-        d_lon: lon2,
+        s_lat: sLat,
+        s_lon: sLon,
+        d_lat: dLat,
+        d_lon: dLon,
       });
+
       const response = await fetch(
         `http://localhost:3000/route?${params.toString()}`,
         {
@@ -122,9 +123,144 @@ const BusRouteFinder = () => {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to send data to the server");
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      console.log("Data sent successfully:", data);
+      return response.json();
+    };
+
+    const checkBusStop = (data, targetLat, targetLon) => {
+      const COORDINATE_THRESHOLD = 0.001;
+      // const round_lat = Math.round(targetLat * 1000) / 1000;
+      // const round_lon = Math.round(targetLon * 1000) / 1000;
+      console.log("df:", data);
+
+      return data.find(
+        // Changed from some to find to get the matching point
+        (point) =>
+          (point.type === "busStop" || point.type === "majorCheckPoint") &&
+          Math.abs(point.lt - targetLat) <= COORDINATE_THRESHOLD &&
+          Math.abs(point.ln - targetLon) <= COORDINATE_THRESHOLD
+      );
+    };
+
+    try {
+      // Initial route request
+      const { result: initialData, closestDestStop: sourceDestination } =
+        await makeRouteRequest(lat1, lon1, lat2, lon2);
+      console.log("Initial data received:", initialData);
+      console.log("Initial src received:", sourceDestination);
+
+      console.log("ele: ", initialData);
+
+      const directBusStop = checkBusStop(
+        initialData.markerPosition,
+        sourceDestination.stop.lt,
+        sourceDestination.stop.ln
+      );
+
+      console.log("cd ", directBusStop);
+      if (directBusStop) {
+        console.log("Bus stop found with the given coordinates.");
+
+        setPolyLine(initialData.polyLines); // Using polyLines from the matching point
+        
+        return;
+      }
+      
+      
+
+      const majorPoints = initialData.markerPosition.filter(
+        (point) => point.type === "majorCheckPoint"
+      );
+      console.log("st: ", majorPoints);
+      // if (majorCheckPoints.length >= 3) {
+      //  const { result: secndaryData } = await makeRouteRequest(
+      //     majorCheckPoints[2].lt,
+      //     majorCheckPoints[2].ln,
+      //     sourceDestination.stop.lt,
+      //     sourceDestination.stop.ln
+      //   );
+
+      //   console.log(secndaryData);
+      // }
+
+      const { result: secndaryData1 } = await makeRouteRequest(
+        majorPoints[0].ln,
+        majorPoints[0].lt,
+        sourceDestination.stop.lt,
+        sourceDestination.stop.ln
+      );
+      console.log(
+        majorPoints[0].lt,
+        majorPoints[0].ln,
+        sourceDestination.stop.lt,
+        sourceDestination.stop.ln);
+      console.log(secndaryData1);
+
+      const directBusStop2 = checkBusStop(
+        secndaryData1.markerPosition,
+        sourceDestination.stop.lt,
+        sourceDestination.stop.ln
+      );
+
+      console.log("cd ", directBusStop2);
+      if (directBusStop2) {
+        console.log("Bus stop found with the given coordinates.");
+
+        // const endElement = directBusStop2;
+        // Polyline.slice(0,4);
+
+        const indexx = initialData.markerPosition.findIndex(item => item.namee === majorPoints[0].namee);
+// console.log(initialData.markerPosition[0])
+        console.log(indexx)
+
+        setPolyLine( [initialData.polyLines.slice(0,indexx+1), secndaryData1.polyLines]); // Using polyLines from the matching point
+        return;
+      }
+
+
+
+      // const checkpointResults = await Promise.all(
+      //   majorCheckPoints.map((checkpoint) =>
+      //     makeRouteRequest(checkpoint.lt, checkpoint.ln, lat2, lon2)
+      //   )
+      // );
+
+      // for (const route in initialData) {
+      //   // const directBusStop = checkBusStop(route, lat2, lon2);
+      //   console.log("ccc: ", route)
+      //   // console.log("dddd:  ", directBusStop);
+      //   if (directBusStop) {
+      //     console.log("Bus stop found with the given coordinates.");
+
+      //     setPolyLine(directBusStop.polyLines); // Using polyLines from the matching point
+      //     return;
+      //   }
+
+      //   // If no direct bus stop found, check through major checkpoints
+      //   const majorCheckPoints = route.filter(
+      //     (point) => point.type === "majorCheckPoint"
+      //   );
+
+      //   // Using Promise.all for concurrent requests
+      //   const checkpointResults = await Promise.all(
+      //     majorCheckPoints.map((checkpoint) =>
+      //       makeRouteRequest(checkpoint.lt, checkpoint.ln, lat2, lon2)
+      //     )
+      //   );
+
+      //   // Process checkpoint results
+      //   for (const data of checkpointResults) {
+      //     const matchingBusStop = checkBusStop(data, lat2, lon2);
+      //     if (matchingBusStop) {
+      //       console.log("Bus stop found through checkpoint route");
+      //       setPolyLine(matchingBusStop.polyLines); // Using polyLines from the matching point
+      //       return;
+      //     }
+      //   }
+      // }
+
+      console.log("No bus stop found in any route");
     } catch (error) {
       console.error("Error sending data to the server:", error);
     }
@@ -245,7 +381,18 @@ const BusRouteFinder = () => {
           onChange={(e) => setSource(e.target.value)}
         />
         <button onClick={() => setMarkerState("confirmed")}>a confirm</button>
-        <button onClick={() => getDataFromServer(markerPosition[0].lt, markerPosition[0].ln, markerPosition[1].lt, markerPosition[1].ln)}>b confirm</button>
+        <button
+          onClick={() =>
+            getDataFromServer(
+              markerPosition[0].lt,
+              markerPosition[0].ln,
+              markerPosition[1].lt,
+              markerPosition[1].ln
+            )
+          }
+        >
+          b confirm
+        </button>
       </div>
       <div>{/* <button onClick={sendDataToServer}>click gar</button> */}</div>
       <MapContainer

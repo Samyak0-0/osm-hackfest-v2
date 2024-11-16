@@ -9,8 +9,8 @@ function App() {
   return (
     <>
       <MainContextProvider>
-        <BusRouteMap />
-        {/* <BusRouteFinder /> */}
+        {/* <BusRouteMap /> */}
+        <BusRouteFinder />
       </MainContextProvider>
     </>
   );

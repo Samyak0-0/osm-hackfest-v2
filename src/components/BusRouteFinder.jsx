@@ -55,6 +55,20 @@ const createCustomIcon2 = () => {
   });
 };
 
+const createCustomIcon3 = () => {
+  return L.divIcon({
+    className: "custom-icon",
+    html: `<div class="w-8 h-8 text-red-500">
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="yellow" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+        <circle cx="12" cy="10" r="3" fill="white" stroke="black"></circle>
+      </svg>
+    </div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+  });
+};
+
 const getPosition = () => {
   const [currentPosition, setCurrentPosition] = useState([27.71, 85.32]); // Default fallback position
 
@@ -88,6 +102,7 @@ const BusRouteFinder = () => {
 
   const customIcon1 = createCustomIcon1();
   const customIcon2 = createCustomIcon2();
+  const customIcon3 = createCustomIcon3();
   const [locationName, setLocationName] = useState("");
 
   const [polyLine, setPolyLine] = useState([]);
@@ -145,10 +160,20 @@ const BusRouteFinder = () => {
 
     try {
       // Initial route request
-      const { result: initialData, closestDestStop: sourceDestination } =
-        await makeRouteRequest(lat1, lon1, lat2, lon2);
+      const {
+        result: initialData,
+        closestDestStop: sourceDestination,
+        closestSourceStop: closestSource,
+      } = await makeRouteRequest(lat1, lon1, lat2, lon2);
       console.log("Initial data received:", initialData);
       console.log("Initial src received:", sourceDestination);
+
+      // setCloseSource([])
+      console.log("adas: ", closestSource);
+      setCloseDest([[lat2,lon2],[sourceDestination.stop.lt, sourceDestination.stop.ln]])
+      setCloseSource([[lat1,lon1],[closestSource.stop.lt, closestSource.stop.ln]])
+      // setCloseDest([lat2,lon2],[closeSource.stop.lt, closeSource.stop.ln])
+      // console.log("asdasd: ", [lat2,lon2],[closeSource.stop.lt, closeSource.stop.ln])
 
       console.log("ele: ", initialData);
 
@@ -172,34 +197,34 @@ const BusRouteFinder = () => {
       );
       console.log("st: ", majorPoints);
       if (majorCheckPoints.length >= 3) {
-       
         const { result: secndaryData3 } = await makeRouteRequest(
           majorPoints[2].ln,
           majorPoints[2].lt,
           sourceDestination.stop.lt,
           sourceDestination.stop.ln
         );
-  
+
         const directBusStop3 = checkBusStop(
           secndaryData3.markerPosition,
           sourceDestination.stop.lt,
           sourceDestination.stop.ln
         );
-  
+
         if (directBusStop3) {
           console.log("Bus stop found with the given coordinates.");
-  
+
           const indexx = initialData.markerPosition.findIndex(
             (item) => item.namee === majorPoints[2].namee
           );
-  
+
+          setStarPoint([majorPoints[2].lt, majorPoints[2].ln]);
+
           setPolyLine([
             initialData.polyLines.slice(0, indexx + 1),
             secndaryData3.polyLines,
           ]); // Using polyLines from the matching point
           return;
         }
-
       }
 
       const { result: secndaryData1 } = await makeRouteRequest(
@@ -221,7 +246,7 @@ const BusRouteFinder = () => {
         const indexx = initialData.markerPosition.findIndex(
           (item) => item.namee === majorPoints[0].namee
         );
-
+        setStarPoint([majorPoints[0].lt, majorPoints[0].ln]);
         setPolyLine([
           initialData.polyLines.slice(0, indexx + 1),
           secndaryData1.polyLines,
@@ -248,6 +273,8 @@ const BusRouteFinder = () => {
         const indexx = initialData.markerPosition.findIndex(
           (item) => item.namee === majorPoints[1].namee
         );
+
+        setStarPoint([majorPoints[1].lt, majorPoints[1].ln]);
 
         setPolyLine([
           initialData.polyLines.slice(0, indexx + 1),
@@ -332,7 +359,10 @@ const BusRouteFinder = () => {
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
 
-  
+  const [closeSource, setCloseSource] = useState();
+  const [closeDest, setCloseDest] = useState();
+  const [starPoint, setStarPoint] = useState();
+
   return (
     <div style={{ height: "600px", width: "100%" }}>
       <div>
@@ -393,6 +423,10 @@ const BusRouteFinder = () => {
               />
             )
           )}
+
+        {closeSource && <React.Fragment key={1234}><Polyline positions={closeSource} color="grey" /></React.Fragment>}
+        {closeDest && <React.Fragment key={12345}><Polyline positions={closeDest} color="grey" /></React.Fragment>}
+        {starPoint && <Marker icon={customIcon3} position={starPoint} />}
 
         {polyLine && (
           <React.Fragment key={123}>

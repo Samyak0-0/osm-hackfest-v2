@@ -329,40 +329,10 @@ const BusRouteFinder = () => {
   };
 
   // Sample bus route data - replace with your actual data
-  const busRoutes = [
-    {
-      id: 1,
-      name: "Route 1",
-      color: "#FF0000",
-      stops: [
-        { name: "Stop A", position: [51.505, -0.09] },
-        { name: "Stop B", position: [51.51, -0.1] },
-        { name: "Stop C", position: [51.515, -0.09] },
-      ],
-      path: [
-        [51.505, -0.09],
-        [51.51, -0.1],
-        [51.515, -0.09],
-      ],
-    },
-    {
-      id: 2,
-      name: "Route 2",
-      color: "#0000FF",
-      stops: [
-        { name: "Stop D", position: [51.505, -0.08] },
-        { name: "Stop E", position: [51.51, -0.085] },
-        { name: "Stop F", position: [51.515, -0.082] },
-      ],
-      path: [
-        [51.505, -0.08],
-        [51.51, -0.085],
-        [51.515, -0.082],
-      ],
-    },
-  ];
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
+
+  
   return (
     <div style={{ height: "600px", width: "100%" }}>
       <div>

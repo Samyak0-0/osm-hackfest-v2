@@ -163,26 +163,44 @@ const BusRouteFinder = () => {
         console.log("Bus stop found with the given coordinates.");
 
         setPolyLine(initialData.polyLines); // Using polyLines from the matching point
-        
+
         return;
       }
-      
-      
 
       const majorPoints = initialData.markerPosition.filter(
         (point) => point.type === "majorCheckPoint"
       );
       console.log("st: ", majorPoints);
-      // if (majorCheckPoints.length >= 3) {
-      //  const { result: secndaryData } = await makeRouteRequest(
-      //     majorCheckPoints[2].lt,
-      //     majorCheckPoints[2].ln,
-      //     sourceDestination.stop.lt,
-      //     sourceDestination.stop.ln
-      //   );
+      if (majorCheckPoints.length >= 3) {
+       
+        const { result: secndaryData3 } = await makeRouteRequest(
+          majorPoints[2].ln,
+          majorPoints[2].lt,
+          sourceDestination.stop.lt,
+          sourceDestination.stop.ln
+        );
+  
+        const directBusStop3 = checkBusStop(
+          secndaryData3.markerPosition,
+          sourceDestination.stop.lt,
+          sourceDestination.stop.ln
+        );
+  
+        if (directBusStop3) {
+          console.log("Bus stop found with the given coordinates.");
+  
+          const indexx = initialData.markerPosition.findIndex(
+            (item) => item.namee === majorPoints[2].namee
+          );
+  
+          setPolyLine([
+            initialData.polyLines.slice(0, indexx + 1),
+            secndaryData3.polyLines,
+          ]); // Using polyLines from the matching point
+          return;
+        }
 
-      //   console.log(secndaryData);
-      // }
+      }
 
       const { result: secndaryData1 } = await makeRouteRequest(
         majorPoints[0].ln,
@@ -190,75 +208,53 @@ const BusRouteFinder = () => {
         sourceDestination.stop.lt,
         sourceDestination.stop.ln
       );
-      console.log(
-        majorPoints[0].lt,
-        majorPoints[0].ln,
-        sourceDestination.stop.lt,
-        sourceDestination.stop.ln);
-      console.log(secndaryData1);
 
-      const directBusStop2 = checkBusStop(
+      const directBusStop1 = checkBusStop(
         secndaryData1.markerPosition,
         sourceDestination.stop.lt,
         sourceDestination.stop.ln
       );
 
-      console.log("cd ", directBusStop2);
-      if (directBusStop2) {
+      if (directBusStop1) {
         console.log("Bus stop found with the given coordinates.");
 
-        // const endElement = directBusStop2;
-        // Polyline.slice(0,4);
+        const indexx = initialData.markerPosition.findIndex(
+          (item) => item.namee === majorPoints[0].namee
+        );
 
-        const indexx = initialData.markerPosition.findIndex(item => item.namee === majorPoints[0].namee);
-// console.log(initialData.markerPosition[0])
-        console.log(indexx)
-
-        setPolyLine( [initialData.polyLines.slice(0,indexx+1), secndaryData1.polyLines]); // Using polyLines from the matching point
+        setPolyLine([
+          initialData.polyLines.slice(0, indexx + 1),
+          secndaryData1.polyLines,
+        ]); // Using polyLines from the matching point
         return;
       }
 
+      const { result: secndaryData2 } = await makeRouteRequest(
+        majorPoints[1].ln,
+        majorPoints[1].lt,
+        sourceDestination.stop.lt,
+        sourceDestination.stop.ln
+      );
 
+      const directBusStop2 = checkBusStop(
+        secndaryData2.markerPosition,
+        sourceDestination.stop.lt,
+        sourceDestination.stop.ln
+      );
 
-      // const checkpointResults = await Promise.all(
-      //   majorCheckPoints.map((checkpoint) =>
-      //     makeRouteRequest(checkpoint.lt, checkpoint.ln, lat2, lon2)
-      //   )
-      // );
+      if (directBusStop2) {
+        console.log("Bus stop found with the given coordinates.");
 
-      // for (const route in initialData) {
-      //   // const directBusStop = checkBusStop(route, lat2, lon2);
-      //   console.log("ccc: ", route)
-      //   // console.log("dddd:  ", directBusStop);
-      //   if (directBusStop) {
-      //     console.log("Bus stop found with the given coordinates.");
+        const indexx = initialData.markerPosition.findIndex(
+          (item) => item.namee === majorPoints[1].namee
+        );
 
-      //     setPolyLine(directBusStop.polyLines); // Using polyLines from the matching point
-      //     return;
-      //   }
-
-      //   // If no direct bus stop found, check through major checkpoints
-      //   const majorCheckPoints = route.filter(
-      //     (point) => point.type === "majorCheckPoint"
-      //   );
-
-      //   // Using Promise.all for concurrent requests
-      //   const checkpointResults = await Promise.all(
-      //     majorCheckPoints.map((checkpoint) =>
-      //       makeRouteRequest(checkpoint.lt, checkpoint.ln, lat2, lon2)
-      //     )
-      //   );
-
-      //   // Process checkpoint results
-      //   for (const data of checkpointResults) {
-      //     const matchingBusStop = checkBusStop(data, lat2, lon2);
-      //     if (matchingBusStop) {
-      //       console.log("Bus stop found through checkpoint route");
-      //       setPolyLine(matchingBusStop.polyLines); // Using polyLines from the matching point
-      //       return;
-      //     }
-      //   }
-      // }
+        setPolyLine([
+          initialData.polyLines.slice(0, indexx + 1),
+          secndaryData2.polyLines,
+        ]); // Using polyLines from the matching point
+        return;
+      }
 
       console.log("No bus stop found in any route");
     } catch (error) {
